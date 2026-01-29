@@ -1,0 +1,66 @@
+# Logic Pro Plug-in Organizer
+
+Organize Logic Pro Audio Unit plug-ins into custom categories by writing directly to Logic's Tags database. The mapping is deterministic and portable, so you get consistent results across machines.
+
+## What this does
+
+- Scans installed AU plug-ins in your Components folders.
+- Assigns each plug-in to a category based on `plugin_mapping.json`.
+- Updates Logic Pro tag databases in `~/Music/Audio Music Apps/Databases/Tags`.
+- Creates a backup before writing changes.
+
+## Requirements
+
+- macOS with Logic Pro installed
+- Python 3.10+
+- Logic Pro must be closed when running the script
+
+## Usage
+
+Dry run (default):
+
+```bash
+python organize_logic_plugins.py
+```
+
+Apply changes:
+
+```bash
+python organize_logic_plugins.py --apply
+```
+
+Optional flags:
+
+```bash
+python organize_logic_plugins.py \
+  --components-dir "/Library/Audio/Plug-Ins/Components" \
+  --components-dir "~/Library/Audio/Plug-Ins/Components" \
+  --tags-dir "~/Music/Audio Music Apps/Databases/Tags" \
+  --mapping "./plugin_mapping.json" \
+  --backup-dir "./backup" \
+  --report "./reports/plugin-organizer-report.json"
+```
+
+## Mapping file
+
+All categorization logic lives in `plugin_mapping.json`.
+
+- `categories`: ordered list of category names used in Logic.
+- `vendor_aliases`: maps bundle identifiers or manufacturer codes to vendor names.
+- `overrides`: exact or pattern-based matches that take precedence.
+- `vendor_rules`: regex rules scoped to a specific vendor.
+- `rules`: global regex rules for any plug-in.
+- `fallback_category`: default category when no rule matches.
+
+Adjust the mapping to fit your library or studio workflow. The rules are evaluated in this order:
+
+1. Overrides
+2. Vendor rules
+3. Global rules
+4. Fallback category
+
+## Notes
+
+- The script writes to Logic's Tags database. A backup is created before any changes.
+- Some plug-ins may not have a tagset file yet if Logic has never scanned them. Those are reported and skipped.
+- If you want to preserve existing tags instead of replacing them, pass `--merge-tags`.

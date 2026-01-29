@@ -68,6 +68,11 @@ def parse_args() -> argparse.Namespace:
         help="Merge with existing tags instead of replacing.",
     )
     parser.add_argument(
+        "--update-categories",
+        action="store_true",
+        help="Overwrite Logic category lists from mapping.",
+    )
+    parser.add_argument(
         "--report",
         default=None,
         help="Write JSON report to this path.",
@@ -82,6 +87,11 @@ def parse_args() -> argparse.Namespace:
         action="append",
         default=[],
         help="Limit diagnose output to a vendor (repeatable).",
+    )
+    parser.add_argument(
+        "--diagnose-unmapped",
+        action="store_true",
+        help="Show all plugins not mapped to a category (fallback or excluded).",
     )
     parser.add_argument(
         "--restore-backup",
@@ -364,8 +374,9 @@ def main() -> None:
             raise SystemExit(f"Tags directory not found: {tags_dir}")
         backup_dir = backup_tags(tags_dir, backup_root)
         print(f"Backup created at {backup_dir}")
-        update_properties(tags_dir, categories)
-        update_tagpool(tags_dir, categories)
+        if args.update_categories:
+            update_properties(tags_dir, categories)
+            update_tagpool(tags_dir, categories)
 
         for plugin in plugins:
             result = next(
@@ -392,18 +403,52 @@ def main() -> None:
 
     if args.diagnose:
         vendor_filters = {normalize(v) for v in args.diagnose_vendor if v}
-        filtered = []
+        filtered_fallback = []
+        filtered_excluded = []
+
         for item in fallback_matches:
             vendor_norm = normalize(item.get("vendor") or "")
             if vendor_filters and vendor_norm not in vendor_filters:
                 continue
-            filtered.append(item)
-        print(f"Fallback category matches ({fallback_category}): {len(filtered)}")
-        for item in sorted(filtered, key=lambda x: (x.get("vendor") or "", x["name"])):
-            vendor_label = item.get("vendor") or "Unknown Vendor"
-            bundle_id = item.get("bundle_id") or ""
-            suffix = f" [{bundle_id}]" if bundle_id else ""
-            print(f"- {vendor_label}: {item['name']}{suffix}")
+            filtered_fallback.append(item)
+
+        for item in excluded_plugins:
+            vendor_norm = normalize(item.get("vendor") or "")
+            if vendor_filters and vendor_norm not in vendor_filters:
+                continue
+            filtered_excluded.append(item)
+
+        if args.diagnose_unmapped:
+            unmapped = filtered_fallback + filtered_excluded
+            print(f"Unmapped plugins (fallback or excluded): {len(unmapped)}")
+            for item in sorted(
+                unmapped, key=lambda x: (x.get("vendor") or "", x["name"])
+            ):
+                vendor_label = item.get("vendor") or "Unknown Vendor"
+                bundle_id = item.get("bundle_id") or ""
+                suffix = f" [{bundle_id}]" if bundle_id else ""
+                status = "excluded" if item.get("excluded") else "fallback"
+                print(f"- {vendor_label}: {item['name']}{suffix} ({status})")
+        else:
+            print(
+                f"Fallback category matches ({fallback_category}): {len(filtered_fallback)}"
+            )
+            for item in sorted(
+                filtered_fallback, key=lambda x: (x.get("vendor") or "", x["name"])
+            ):
+                vendor_label = item.get("vendor") or "Unknown Vendor"
+                bundle_id = item.get("bundle_id") or ""
+                suffix = f" [{bundle_id}]" if bundle_id else ""
+                print(f"- {vendor_label}: {item['name']}{suffix}")
+
+            print(f"Excluded plugins: {len(filtered_excluded)}")
+            for item in sorted(
+                filtered_excluded, key=lambda x: (x.get("vendor") or "", x["name"])
+            ):
+                vendor_label = item.get("vendor") or "Unknown Vendor"
+                bundle_id = item.get("bundle_id") or ""
+                suffix = f" [{bundle_id}]" if bundle_id else ""
+                print(f"- {vendor_label}: {item['name']}{suffix}")
 
     if args.report:
         report_path = Path(args.report).expanduser()

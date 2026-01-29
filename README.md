@@ -17,6 +17,13 @@ Organize Logic Pro Audio Unit plug-ins into custom categories by writing directl
 
 ## Usage
 
+Recommended workflow (keeps Logic's built-in categories intact):
+
+```bash
+python list_logic_tags.py --output "./reports/logic-tags.json"
+python organize_logic_plugins.py --apply
+```
+
 Dry run (default):
 
 ```bash
@@ -27,6 +34,20 @@ Apply changes:
 
 ```bash
 python organize_logic_plugins.py --apply
+```
+
+By default this preserves Logic's existing categories. To overwrite categories from the mapping file:
+
+```bash
+python organize_logic_plugins.py --apply --update-categories
+```
+
+Export current Logic categories/tags:
+
+```bash
+python list_logic_tags.py
+python list_logic_tags.py --output "./reports/logic-tags.json"
+python list_logic_tags.py --include-tagsets --output "./reports/logic-tags-full.json"
 ```
 
 Optional flags:
@@ -45,6 +66,7 @@ Diagnose plugins that fall into the fallback category:
 
 ```bash
 python organize_logic_plugins.py --diagnose
+python organize_logic_plugins.py --diagnose --diagnose-unmapped
 python organize_logic_plugins.py --diagnose --diagnose-vendor "Arturia" --diagnose-vendor "Universal Audio"
 ```
 
@@ -59,7 +81,7 @@ python organize_logic_plugins.py --restore-backup "./backup/Tags-backup-20260128
 
 All categorization logic lives in `plugin_mapping.json`.
 
-- `categories`: ordered list of category names used in Logic.
+- `categories`: ordered list of category names used in Logic (defaults to Logic's built-in set).
 - `vendor_aliases`: maps bundle identifiers or manufacturer codes to vendor names.
 - `overrides`: exact or pattern-based matches that take precedence.
 - `vendor_rules`: regex rules scoped to a specific vendor.
@@ -80,3 +102,5 @@ Adjust the mapping to fit your library or studio workflow. The rules are evaluat
 - Some plug-ins may not have a tagset file yet if Logic has never scanned them. Those are reported and skipped.
 - If you want to preserve existing tags instead of replacing them, pass `--merge-tags`.
 - Use `--restore-latest` to undo the most recent apply and start over.
+- Use `--update-categories` only if you want to overwrite Logic's category list.
+- If Logic's built-in categories change after an update, re-run `list_logic_tags.py` and update `plugin_mapping.json` accordingly.

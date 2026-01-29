@@ -22,6 +22,9 @@
     "Other"
   ],
   "fallback_category": "Other",
+  "exclude": [
+    {"pattern": "ARIA Player"}
+  ],
   "vendor_aliases": {
     "waves": "Waves",
     "wavesaudio": "Waves",
@@ -78,6 +81,11 @@
     {"vendor": "Native Instruments", "name": "Raum", "category": "Reverb"},
     {"vendor": "Native Instruments", "name": "Replika", "category": "Delay"},
     {"vendor": "Native Instruments", "name": "Replika XT", "category": "Delay"},
+    {"vendor": "Native Instruments", "name": "Komplete Kontrol", "category": "Utility"},
+    {"vendor": "Native Instruments", "name": "Solid Dynamics", "category": "Dynamics"},
+    {"vendor": "Native Instruments", "name": "Supercharger", "category": "Dynamics"},
+    {"vendor": "Native Instruments", "name": "Transient Master", "category": "Dynamics"},
+    {"pattern": "Dexed", "category": "Instrument - Synth"},
 
     {"vendor": "Arturia", "name": "Pigments", "category": "Instrument - Synth"},
     {"vendor": "Arturia", "name": "Analog Lab", "category": "Instrument - Keys"},
@@ -127,6 +135,10 @@
     {"vendor": "Arturia", "name": "Augmented BRASS", "category": "Instrument - Orchestral"},
     {"vendor": "Arturia", "name": "Augmented WOODWINDS", "category": "Instrument - Orchestral"},
     {"vendor": "Arturia", "name": "Augmented MALLETS", "category": "Instrument - Orchestral"},
+    {"vendor": "Arturia", "name": "CMI V", "category": "Instrument - Synth"},
+    {"vendor": "Arturia", "name": "Jun-6 V", "category": "Instrument - Synth"},
+    {"vendor": "Arturia", "name": "OP-Xa V", "category": "Instrument - Synth"},
+    {"vendor": "Arturia", "name": "SQ80 V", "category": "Instrument - Synth"},
 
     {"vendor": "Universal Audio", "name": "Anthem Analog Synthesizer", "category": "Instrument - Synth"},
     {"vendor": "Universal Audio", "name": "Opal Morphing Synthesizer", "category": "Instrument - Synth"},
@@ -153,6 +165,30 @@
     {"vendor": "Universal Audio", "name": "Galaxy Tape Echo", "category": "Delay"},
     {"vendor": "Universal Audio", "name": "Studio D Chorus", "category": "Modulation"},
     {"vendor": "Universal Audio", "name": "Waterfall Rotary Speaker", "category": "Modulation"},
+    {"vendor": "Universal Audio", "name": "UAD 4K Channel Strip", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD CS-1", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD Chandler GAV19T", "category": "Amp/Cab"},
+    {"vendor": "Universal Audio", "name": "UAD Bermuda Triangle", "category": "Modulation"},
+    {"vendor": "Universal Audio", "name": "UAD Roland CE-1", "category": "Modulation"},
+    {"vendor": "Universal Audio", "name": "UAD Roland Dimension D", "category": "Modulation"},
+    {"vendor": "Universal Audio", "name": "UAD Roland RE-201", "category": "Delay"},
+    {"vendor": "Universal Audio", "name": "UAD Manley Variable Mu", "category": "Dynamics"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 2254 E", "category": "Dynamics"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 2254 E Dual", "category": "Dynamics"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 33609 C", "category": "Dynamics"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 33609SE", "category": "Dynamics"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 1081", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 1081SE", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 1084", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 31102", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD Neve 31102SE", "category": "EQ"},
+    {"vendor": "Universal Audio", "name": "UAD Vertigo VSM-3", "category": "Saturation"},
+    {"vendor": "Universal Audio", "name": "UAD Sound Machine Wood Works", "category": "Utility"},
+    {"vendor": "Universal Audio", "name": "UAD Sphere Mic Collection", "category": "Utility"},
+    {"vendor": "Universal Audio", "name": "UAD Sphere Mic Collection 180", "category": "Utility"},
+    {"vendor": "Universal Audio", "name": "UAD Hemisphere Mic Collection", "category": "Utility"},
+    {"vendor": "Universal Audio", "name": "UAD Putnam Mic Collection", "category": "Utility"},
+    {"vendor": "Universal Audio", "name": "UAD Putnam Mic Collection 180", "category": "Utility"},
 
     {"vendor": "Spitfire", "pattern": "LABS", "category": "Instrument - Orchestral"},
     {"vendor": "Spitfire", "pattern": "Spitfire", "category": "Instrument - Orchestral"}
@@ -167,7 +203,7 @@
       {"pattern": "dist|overdrive|fuzz|saturat|tape|preamp|drive", "category": "Saturation"},
       {"pattern": "amp|cab|guitar", "category": "Amp/Cab"},
       {"pattern": "lab|analog lab", "category": "Instrument - Keys"},
-      {"pattern": "pigments|mini v|cs-?80|dx7|prophet|jup-?8|juno|arp|buchla|mellotron|matrix|synth|synclavier|modular|sem v|vocoder v|polybrute|minifreak|microfreak", "category": "Instrument - Synth"},
+      {"pattern": "pigments|mini v|cs-?80|dx7|prophet|jup-?8|juno|jun-?6|arp|buchla|mellotron|matrix|synth|synclavier|modular|sem v|vocoder v|polybrute|minifreak|microfreak|cmi v|op-?xa|sq80", "category": "Instrument - Synth"},
       {"pattern": "piano v|stage-?73|wurli|clavinet|b-?3 v|farfisa|vox continental|solina|mellotron|c-?3 v|organ", "category": "Instrument - Keys"},
       {"pattern": "emulator ii|sampler", "category": "Instrument - Sampler"},
       {"pattern": "augmented|strings|voices|brass|woodwinds|malletts|malle?ts", "category": "Instrument - Orchestral"}
@@ -197,7 +233,9 @@
       {"pattern": "replika|delay", "category": "Delay"},
       {"pattern": "guitar rig|amp", "category": "Amp/Cab"},
       {"pattern": "phasis|choral|flair|mod", "category": "Modulation"},
-      {"pattern": "driver|freak|dirt|dist", "category": "Distortion"}
+      {"pattern": "driver|freak|dirt|dist", "category": "Distortion"},
+      {"pattern": "transient master|solid dynamics|supercharger", "category": "Dynamics"},
+      {"pattern": "komplete kontrol", "category": "Utility"}
     ],
     "Spitfire": [
       {"pattern": "spitfire|labs|orchestra|string|strings|brass|woodwind|choir", "category": "Instrument - Orchestral"}

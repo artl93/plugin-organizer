@@ -62,6 +62,14 @@ python organize_logic_plugins.py \
   --report "./reports/plugin-organizer-report.json"
 ```
 
+Hide unlicensed UAD plug-ins in Logic:
+
+```bash
+python hide_uad_plugins.py "./reports/UADSystemProfile.txt"
+python hide_uad_plugins.py "./reports/UADSystemProfile.txt" --apply
+python hide_uad_plugins.py --restore --apply
+```
+
 Diagnose plugins that fall into the fallback category:
 
 ```bash

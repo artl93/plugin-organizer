@@ -71,6 +71,11 @@ def save_raw_output(output: str, tool: str) -> Path:
 
 
 def run_tool_streaming(command: list[str], prompt: str) -> tuple[int, str, str]:
+    """Run an AI tool with streaming output.
+    
+    Uses select-based streaming for progress updates, with fallback to
+    communicate() if streaming encounters errors.
+    """
     process = subprocess.Popen(
         command,
         stdin=subprocess.PIPE,
@@ -83,8 +88,12 @@ def run_tool_streaming(command: list[str], prompt: str) -> tuple[int, str, str]:
     assert process.stdout is not None
     assert process.stderr is not None
 
-    process.stdin.write(prompt)
-    process.stdin.close()
+    try:
+        process.stdin.write(prompt)
+        process.stdin.close()
+    except BrokenPipeError:
+        log("Warning: Broken pipe while writing prompt")
+        # Process may have exited early, continue to read output
 
     selector = selectors.DefaultSelector()
     selector.register(process.stdout, selectors.EVENT_READ)
@@ -102,27 +111,54 @@ def run_tool_streaming(command: list[str], prompt: str) -> tuple[int, str, str]:
             log(f"Streaming output: {stdout_bytes} bytes")
             last_report = now
 
-    while selector.get_map():
-        for key, _ in selector.select(timeout=0.1):
-            stream = cast(TextIO, key.fileobj)
-            line = stream.readline()
-            if not line:
-                selector.unregister(stream)
-                continue
-            if stream is process.stdout:
-                stdout_chunks.append(line)
-                stdout_bytes += len(line.encode("utf-8"))
-                print(line, end="")
-            else:
-                stderr_chunks.append(line)
-                log(line.rstrip())
-            report_progress()
+    try:
+        while selector.get_map():
+            events = selector.select(timeout=0.1)
+            for key, _ in events:
+                stream = cast(TextIO, key.fileobj)
+                try:
+                    line = stream.readline()
+                    if not line:
+                        selector.unregister(stream)
+                        continue
+                    if stream is process.stdout:
+                        stdout_chunks.append(line)
+                        stdout_bytes += len(line.encode("utf-8"))
+                        print(line, end="", flush=True)
+                    else:
+                        stderr_chunks.append(line)
+                        log(line.rstrip())
+                    report_progress()
+                except (IOError, OSError) as e:
+                    log(f"Warning: IO error reading stream: {e}")
+                    try:
+                        selector.unregister(stream)
+                    except (KeyError, ValueError):
+                        pass
 
-        if process.poll() is not None and not selector.get_map():
-            break
+            if process.poll() is not None and not selector.get_map():
+                break
+    except Exception as e:
+        log(f"Warning: Streaming error: {e}")
+    finally:
+        selector.close()
+
+    # Drain any remaining output
+    try:
+        remaining_stdout, remaining_stderr = process.communicate(timeout=10)
+        if remaining_stdout:
+            stdout_chunks.append(remaining_stdout)
+            print(remaining_stdout, end="", flush=True)
+        if remaining_stderr:
+            stderr_chunks.append(remaining_stderr)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        log("Warning: Process timed out, killed")
+    except Exception as e:
+        log(f"Warning: Error draining output: {e}")
 
     report_progress(force=True)
-    return process.wait(), "".join(stdout_chunks), "".join(stderr_chunks)
+    return process.returncode or 0, "".join(stdout_chunks), "".join(stderr_chunks)
 
 
 def tool_commands(tool: str) -> list[list[str]]:

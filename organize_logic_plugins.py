@@ -30,6 +30,10 @@ class Plugin:
         )
 
 
+def log(message: str) -> None:
+    print(f"[organize] {message}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Organize Logic Pro AU plug-ins into categories."
@@ -333,7 +337,7 @@ def main() -> None:
             if backup_dir is None:
                 raise SystemExit(f"No backups found in {backup_root}")
         restore_tags(backup_dir, tags_dir)
-        print(f"Tags restored from {backup_dir}")
+        log(f"Tags restored from {backup_dir}")
         return
 
     components_dirs = args.components_dir or [
@@ -342,12 +346,15 @@ def main() -> None:
     ]
     components_dirs = [Path(path).expanduser() for path in components_dirs]
 
+    log("Loading plugin mapping")
     mapping = load_mapping(mapping_path)
     categories = mapping.get("categories", [])
     vendor_aliases = mapping.get("vendor_aliases", {})
     fallback_category = mapping.get("fallback_category", "Other")
 
+    log("Scanning AU components")
     plugins = load_plugins(components_dirs)
+    log(f"Found {len(plugins)} plugins")
     results: list[dict[str, Any]] = []
     missing_tagsets: list[dict[str, Any]] = []
     fallback_matches: list[dict[str, Any]] = []
@@ -372,8 +379,9 @@ def main() -> None:
     if args.apply:
         if not tags_dir.exists():
             raise SystemExit(f"Tags directory not found: {tags_dir}")
+        log("Creating Tags backup")
         backup_dir = backup_tags(tags_dir, backup_root)
-        print(f"Backup created at {backup_dir}")
+        log(f"Backup created at {backup_dir}")
         if args.update_categories:
             update_properties(tags_dir, categories)
             update_tagpool(tags_dir, categories)
@@ -393,13 +401,13 @@ def main() -> None:
                     }
                 )
     else:
-        print("Dry run (no files changed). Use --apply to write changes.")
+        log("Dry run (no files changed). Use --apply to write changes.")
 
     categorized = len(results)
     missing = len(missing_tagsets)
-    print(f"Plugins detected: {categorized}")
+    log(f"Plugins detected: {categorized}")
     if args.apply:
-        print(f"Tagsets missing (not updated): {missing}")
+        log(f"Tagsets missing (not updated): {missing}")
 
     if args.diagnose:
         vendor_filters = {normalize(v) for v in args.diagnose_vendor if v}
@@ -466,7 +474,7 @@ def main() -> None:
         }
         with report_path.open("w", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2, sort_keys=True)
-        print(f"Report written to {report_path}")
+        log(f"Report written to {report_path}")
 
 
 if __name__ == "__main__":

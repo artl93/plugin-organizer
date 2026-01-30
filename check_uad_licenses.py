@@ -15,6 +15,7 @@ Usage:
     python check_uad_licenses.py <system_profile.txt>
     python check_uad_licenses.py --help
 """
+
 import argparse
 import re
 import sys
@@ -37,6 +38,12 @@ class PluginStatus:
     installed_path: Path | None
     licensed: bool
     plugin_format: str
+    match_type: str = ""
+    matched_license: str = ""
+
+
+def log(message: str) -> None:
+    print(f"[uad-check] {message}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,11 +105,38 @@ def normalize_plugin_name(name: str) -> str:
     for ext in [".component", ".vst", ".vst3", ".aaxplugin"]:
         if name.lower().endswith(ext):
             name = name[: -len(ext)]
-    # Remove "UAD " prefix for comparison
+    # Remove Universal Audio prefix for comparison
+    name = re.sub(
+        r"^\s*universal audio(\s*\(uad[^\)]*\))?\s*:\s*",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
     if name.upper().startswith("UAD "):
         name = name[4:]
+    if name.upper().startswith("UADX "):
+        name = name[5:]
+    if name.upper().startswith("UAD-2 "):
+        name = name[6:]
     # Normalize whitespace and case
     return re.sub(r"\s+", " ", name).strip().lower()
+
+
+def tokenize(name: str) -> list[str]:
+    name = normalize_plugin_name(name)
+    name = re.sub(r"[^a-z0-9]+", " ", name)
+    return [token for token in name.split() if token]
+
+
+def is_numeric_token(token: str) -> bool:
+    return token.isdigit()
+
+
+def is_collection_name(name: str) -> bool:
+    name = normalize_plugin_name(name)
+    return any(
+        keyword in name for keyword in ["collection", "bundle", "pack", "series"]
+    )
 
 
 def get_installed_uad_plugins(plugin_dirs: list[Path]) -> dict[str, list[Path]]:
@@ -117,7 +151,13 @@ def get_installed_uad_plugins(plugin_dirs: list[Path]) -> dict[str, list[Path]]:
             continue
 
         # Look for UAD plugins in various formats
-        patterns = ["UAD *.component", "UAD*.component", "*.vst", "*.vst3", "*.aaxplugin"]
+        patterns = [
+            "UAD *.component",
+            "UAD*.component",
+            "*.vst",
+            "*.vst3",
+            "*.aaxplugin",
+        ]
 
         for pattern in patterns:
             for plugin_path in plugin_dir.glob(pattern):
@@ -177,28 +217,122 @@ def parse_system_profile(profile_path: Path) -> set[str]:
     return licensed_plugins
 
 
-def fuzzy_match(installed_name: str, licensed_names: set[str]) -> bool:
-    """Check if an installed plugin name matches any licensed plugin name."""
-    # Exact match
-    if installed_name in licensed_names:
-        return True
+def match_license(
+    installed_name: str, licensed_names: set[str]
+) -> tuple[bool, str, str]:
+    """Return (matched, match_type, matched_license_name)."""
+    installed_norm = normalize_plugin_name(installed_name)
+    if installed_norm in licensed_names:
+        return True, "exact", installed_norm
 
-    # Check if installed name is contained in any licensed name or vice versa
+    base_stopwords = {
+        "uad",
+        "ua",
+        "uadx",
+        "universal",
+        "audio",
+        "plugin",
+        "plugins",
+        "collection",
+        "bundle",
+        "pack",
+        "series",
+        "edition",
+        "legacy",
+        "mk",
+        "mk2",
+        "mkii",
+        "mono",
+        "stereo",
+        "mix",
+        "master",
+        "limited",
+        "expanded",
+        "version",
+    }
+    descriptor_stopwords = {
+        "digital",
+        "analog",
+        "reverb",
+        "delay",
+        "echo",
+        "tape",
+        "mastering",
+        "recorder",
+        "pitch",
+        "shifter",
+        "amp",
+        "amplifier",
+        "guitar",
+        "bass",
+        "classic",
+        "super",
+        "lead",
+        "deluxe",
+        "silver",
+        "jubilee",
+        "bluesbreaker",
+        "tweed",
+        "vintage",
+        "leveler",
+        "jr",
+        "sr",
+        "el7",
+        "el8",
+        "room",
+        "channel",
+        "strip",
+        "compressor",
+        "limiter",
+        "eq",
+        "preamp",
+        "preamplifier",
+        "mic",
+        "microphone",
+    }
+
     for licensed in licensed_names:
-        if installed_name in licensed or licensed in installed_name:
-            return True
+        licensed_norm = normalize_plugin_name(licensed)
+        installed_tokens = set(tokenize(installed_norm))
+        licensed_tokens = set(tokenize(licensed_norm))
+        if not installed_tokens or not licensed_tokens:
+            continue
 
-        # Handle common variations
-        # e.g., "1176 limiter" vs "ua 1176 limiter collection"
-        installed_words = set(installed_name.split())
-        licensed_words = set(licensed.split())
+        common = installed_tokens & licensed_tokens
+        if not common:
+            continue
 
-        # If most significant words match
-        common = installed_words & licensed_words
-        if len(common) >= min(len(installed_words), len(licensed_words)) * 0.6:
-            return True
+        if is_collection_name(licensed_norm):
+            collection_tokens = licensed_tokens - base_stopwords - descriptor_stopwords
+            if collection_tokens and collection_tokens.issubset(
+                installed_tokens - base_stopwords
+            ):
+                return True, "collection-token", licensed
+            if installed_norm in licensed_norm or licensed_norm in installed_norm:
+                return True, "collection-substring", licensed
+            continue
 
-    return False
+        installed_diff = (
+            (installed_tokens - common) - base_stopwords - descriptor_stopwords
+        )
+        licensed_diff = (
+            (licensed_tokens - common) - base_stopwords - descriptor_stopwords
+        )
+        if not installed_diff and not licensed_diff:
+            return True, "token-compatible", licensed
+
+        installed_core = installed_tokens - base_stopwords - descriptor_stopwords
+        licensed_core = licensed_tokens - base_stopwords - descriptor_stopwords
+        if installed_core and installed_core.issubset(licensed_core):
+            return True, "core-subset", licensed
+
+        extra_installed = installed_core - licensed_core
+        if extra_installed and all(
+            is_numeric_token(token) for token in extra_installed
+        ):
+            return True, "core-plus-numeric", licensed
+
+    return False, "", ""
 
 
 def get_plugin_format(path: Path) -> str:
@@ -223,10 +357,11 @@ def main() -> None:
         plugin_dirs.append(Path(extra_dir).expanduser())
 
     # Get installed plugins
+    log("Scanning for installed UAD plugins")
     installed = get_installed_uad_plugins(plugin_dirs)
 
     if not installed:
-        print("No UAD plugins found in the scanned directories.")
+        log("No UAD plugins found in the scanned directories.")
         print("Scanned directories:")
         for d in plugin_dirs:
             print(f"  - {d}")
@@ -244,7 +379,8 @@ def main() -> None:
 
     # Need a profile file to check licenses
     if not args.profile:
-        print("Error: Please provide a UA System Profile file path.\n")
+        log("Error: profile file is required")
+        print("Please provide a UA System Profile file path.\n")
         print("To export your UA System Profile:")
         print("  1. Open the UA Control Panel or UA Connect app")
         print("  2. Go to Help > Save System Profile")
@@ -258,11 +394,11 @@ def main() -> None:
     try:
         licensed = parse_system_profile(profile_path)
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        log(f"Error: {e}")
         sys.exit(1)
 
     if not licensed:
-        print("Warning: Could not find any licensed plugins in the system profile.")
+        log("Warning: could not find licensed plugins in the system profile.")
         print("The file format may not be recognized or the file may be empty.")
         print(f"Profile file: {profile_path}")
         print("\nPlease ensure you exported the system profile from:")
@@ -274,7 +410,7 @@ def main() -> None:
     licensed_installed: list[PluginStatus] = []
 
     for norm_name, paths in installed.items():
-        is_licensed = fuzzy_match(norm_name, licensed)
+        is_licensed, match_type, match_name = match_license(norm_name, licensed)
         display_name = paths[0].stem if paths else norm_name
         formats = ", ".join(sorted(set(get_plugin_format(p) for p in paths)))
 
@@ -283,6 +419,8 @@ def main() -> None:
             installed_path=paths[0] if paths else None,
             licensed=is_licensed,
             plugin_format=formats,
+            match_type=match_type,
+            matched_license=match_name,
         )
 
         if is_licensed:
@@ -296,7 +434,7 @@ def main() -> None:
 
     # Output results
     if args.show_all:
-        print(f"=== UAD Plugin License Check ===\n")
+        print("=== UAD Plugin License Check ===\n")
         print(f"Profile: {profile_path}")
         print(f"Licensed plugins found in profile: {len(licensed)}")
         print(f"Installed UAD plugins: {len(installed)}")
@@ -305,7 +443,10 @@ def main() -> None:
         if licensed_installed:
             print(f"✓ Licensed ({len(licensed_installed)}):")
             for p in licensed_installed:
-                print(f"    {p.name} ({p.plugin_format})")
+                match = (
+                    f" [{p.match_type}: {p.matched_license}]" if p.match_type else ""
+                )
+                print(f"    {p.name} ({p.plugin_format}){match}")
             print()
 
         if unlicensed:
@@ -316,7 +457,10 @@ def main() -> None:
         if licensed_installed:
             print(f"Licensed UAD plugins ({len(licensed_installed)}):\n")
             for p in licensed_installed:
-                print(f"  ✓ {p.name} ({p.plugin_format})")
+                match = (
+                    f" [{p.match_type}: {p.matched_license}]" if p.match_type else ""
+                )
+                print(f"  ✓ {p.name} ({p.plugin_format}){match}")
         else:
             print("No licensed UAD plugins found installed.")
     else:
@@ -325,7 +469,9 @@ def main() -> None:
             print(f"Unlicensed UAD plugins ({len(unlicensed)}):\n")
             for p in unlicensed:
                 print(f"  ✗ {p.name} ({p.plugin_format})")
-            print(f"\nTotal: {len(unlicensed)} unlicensed out of {len(installed)} installed")
+            print(
+                f"\nTotal: {len(unlicensed)} unlicensed out of {len(installed)} installed"
+            )
         else:
             print("All installed UAD plugins are licensed! ✓")
             print(f"({len(licensed_installed)} plugins checked)")
@@ -344,7 +490,10 @@ def main() -> None:
             f.write("Licensed Plugins:\n")
             f.write("-" * 30 + "\n")
             for p in licensed_installed:
-                f.write(f"  ✓ {p.name} ({p.plugin_format})\n")
+                match = (
+                    f" [{p.match_type}: {p.matched_license}]" if p.match_type else ""
+                )
+                f.write(f"  ✓ {p.name} ({p.plugin_format}){match}\n")
 
             f.write("\nUnlicensed Plugins:\n")
             f.write("-" * 30 + "\n")
@@ -353,7 +502,7 @@ def main() -> None:
                 if p.installed_path:
                     f.write(f"      Path: {p.installed_path}\n")
 
-        print(f"\nReport written to: {args.report}")
+        log(f"Report written to: {args.report}")
 
 
 if __name__ == "__main__":

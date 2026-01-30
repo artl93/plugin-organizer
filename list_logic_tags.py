@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any
 
 
+def log(message: str) -> None:
+    print(f"[tags] {message}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="List current Logic Pro tag categories and usage."
@@ -74,6 +78,8 @@ def main() -> None:
     if not tags_dir.exists():
         raise SystemExit(f"Tags directory not found: {tags_dir}")
 
+    log(f"Reading tags from {tags_dir}")
+
     result = {
         "tags_dir": str(tags_dir),
         "categories": list_categories(tags_dir),
@@ -87,7 +93,7 @@ def main() -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open("w", encoding="utf-8") as handle:
             json.dump(result, handle, indent=2, sort_keys=True)
-        print(f"Output written to {output_path}")
+        log(f"Output written to {output_path}")
         return
 
     print("Categories in sorting order:")
